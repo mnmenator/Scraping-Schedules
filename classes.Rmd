@@ -1,0 +1,87 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library("rvest")
+library("tidyr")
+library("dplyr")
+```
+
+```{r}
+read_class_schedule <- function(url){
+  schedule_html <- read_html(url)
+
+  classes <- schedule_html %>%
+             html_nodes(".classrow, .classrowalt")
+
+  subjs <- classes %>%
+           html_nodes(".subj") %>%
+           html_text()
+
+  cat_nums <- classes %>%
+              html_nodes(".cat_num") %>%
+              html_text()
+
+  sects <- classes %>%
+           html_nodes(".sect") %>%
+           html_text()
+
+  #Concatenate the subject and category number
+  names <- paste(subjs, cat_nums)
+
+  titles <- classes %>%
+            html_nodes(".title") %>%
+            html_text()
+
+  instructors <- schedule_html %>%
+                 html_nodes(".Instructor") %>%
+                 html_text()
+
+  enrollments <- schedule_html %>%
+                 html_nodes(".enrtot") %>%
+                 html_text() %>%
+                 as.integer()
+  
+  # "Return to the Spring 2020 index"
+  message <- schedule_html %>%
+             html_nodes(".returntoindexlink") %>%
+             html_text()
+
+  # Determine the semester using the index message
+  if(grepl("Fall", message))
+    semesters <- rep("Fall", length(names))
+  else
+    semesters <- rep("Spring", length(names))
+  
+  # Grab the year from the index message
+  years <- rep(substr(message, nchar(message)-9, nchar(message)-6), length(names))
+
+  # Put everything into a tibble
+  schedule <- tibble("class" = names, "section" = sects, "title" = titles, "instructor" = instructors, "enrollment" = enrollments, "semester" = semesters, "year" = years)
+  
+  return(schedule)
+}
+```
+
+```{r}
+csci_spr_2019_url <- "http://ems.csuchico.edu/APSS/schedule/spr2019/CSCI.shtml"
+csci_spr_2020_url <- "http://ems.csuchico.edu/APSS/schedule/spr2020/CSCI.shtml"
+math_spr_2019_url <- "http://ems.csuchico.edu/APSS/schedule/spr2019/MATH.shtml"
+math_spr_2020_url <- "http://ems.csuchico.edu/APSS/schedule/spr2020/MATH.shtml"
+
+
+csci_spr_2019 <- read_class_schedule(csci_spr_2019_url)
+csci_spr_2020 <- read_class_schedule(csci_spr_2020_url)
+math_spr_2019 <- read_class_schedule(math_spr_2019_url)
+math_spr_2020 <- read_class_schedule(math_spr_2020_url)
+
+# Join all of the schedules into 1 tibble
+schedule <- full_join(csci_spr_2019, math_spr_2019)
+schedule <- full_join(schedule, csci_spr_2020)
+schedule <- full_join(schedule, math_spr_2020)
+
+```
+
+
